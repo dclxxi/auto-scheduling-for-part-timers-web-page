@@ -1,47 +1,74 @@
 package sketcher.scheduling.algorithm;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import sketcher.scheduling.object.HopeTime;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Getter
 @Setter
+@NoArgsConstructor
 public class Manager {
-    private Integer code;
-    private List<HopeTime> hopeTimeList;
-    private Integer hopeTimeCount;
-    private Integer totalAssignTime;
-    private Integer dayAssignTime;
-    private Integer weight;
-    private boolean previousAssignFlag;
-    private List<Schedule> assignScheduleList;
+    private int code;
+    private List<HopeTime> hopeTimes;
+    private int totalAssignTime;
+    private int dayAssignTime;
+    private int weight;
+    private List<Schedule> assignSchedules;
 
-    public Manager() {
-        dayAssignTime = 0;
-        this.hopeTimeList = new ArrayList<>();
-        this.assignScheduleList = new ArrayList<>();
+    public Manager(int code, int totalAssignTime, List<HopeTime> hopeTimes) {
+        this.code = code;
+        this.totalAssignTime = totalAssignTime;
+        this.hopeTimes = List.copyOf(hopeTimes);
+        this.assignSchedules = new ArrayList<>();
+    }
+
+    public int getHopeTimeCount() {
+        return hopeTimes.size();
     }
 
     public Schedule findScheduleByTime(int time) {
-        for (Schedule schedule : assignScheduleList) {
-            if (schedule.getTime() == time) {
+        for (Schedule schedule : assignSchedules) {
+            if (schedule.isEqualsTime(time)) {
                 return schedule;
             }
         }
+
         return null;
     }
 
     public void updateAssignScheduleList(Schedule currentNode, Schedule newNode) {
-        if (currentNode != null) {
-            assignScheduleList.remove(currentNode);
-        } else {
-            totalAssignTime++;
-            dayAssignTime++;
+        if (isAlreadyAssign(currentNode)) {
+            assignSchedules.remove(currentNode);
+            assignSchedules.add(newNode);
+            return;
         }
-        assignScheduleList.add(newNode);
+
+        assignSchedule(newNode);
+    }
+
+    private boolean isAlreadyAssign(Schedule currentNode) {
+        return currentNode != null;
+    }
+
+    private void assignSchedule(Schedule newNode) {
+        assignSchedules.add(newNode);
+        totalAssignTime++;
+        dayAssignTime++;
+    }
+
+    public boolean isExceedDayAssignTime(int dayAssignTime) {
+        return this.dayAssignTime >= dayAssignTime;
+    }
+
+    public boolean isExceedToTalAssignTime(int totalAssignTime) {
+        return this.totalAssignTime >= totalAssignTime;
+    }
+
+    public boolean isEqualsWeight(int weight) {
+        return this.weight != weight;
     }
 }
