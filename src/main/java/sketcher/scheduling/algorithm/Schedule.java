@@ -10,15 +10,15 @@ import lombok.Setter;
 public class Schedule {
     private int id;
     private int time;
-    private int weight;
     private boolean M3;
+    private Weight weight;
     private Manager manager;
 
-    public Schedule(int id, Integer time, Integer weight, boolean M3) {
+    public Schedule(int id, int time, boolean M3, Weight weight) {
         this.id = id;
         this.time = time;
-        this.weight = weight;
         this.M3 = M3;
+        this.weight = weight;
     }
 
     public boolean isM3() {

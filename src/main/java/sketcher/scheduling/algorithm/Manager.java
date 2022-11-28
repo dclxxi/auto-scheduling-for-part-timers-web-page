@@ -16,7 +16,7 @@ public class Manager {
     private List<HopeTime> hopeTimes;
     private int totalAssignTime;
     private int dayAssignTime;
-    private int weight;
+    private Weight weight;
     private List<Schedule> assignSchedules;
 
     public Manager(int code, int totalAssignTime, List<HopeTime> hopeTimes) {
@@ -68,7 +68,7 @@ public class Manager {
         return this.totalAssignTime >= totalAssignTime;
     }
 
-    public boolean isEqualsWeight(int weight) {
+    public boolean isEqualsWeight(Weight weight) {
         return this.weight != weight;
     }
 }

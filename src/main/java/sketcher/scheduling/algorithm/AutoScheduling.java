@@ -12,19 +12,20 @@ import sketcher.scheduling.service.UserService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import static sketcher.scheduling.algorithm.Weight.LEVEL1;
+import static sketcher.scheduling.algorithm.Weight.LEVEL2;
+import static sketcher.scheduling.algorithm.Weight.LEVEL3;
 
 
 @Component
 @RequiredArgsConstructor
 public class AutoScheduling {
-    private static final int LEVEL1 = 1;
-    private static final int LEVEL2 = 2;
-    private static final int LEVEL3 = 3;
-    private static final int HIGH_INDEX = 0;
-    private static final int MIDDLE_INDEX = 1;
     private static final int DAY_ASSIGN_TIME = 3;
     private static final int TOTAL_ASSIGN_TIME = 10;
     private static final double MANAGER_DONE_REQUEST_AVG_PER_HOUR = 50.0;
@@ -36,15 +37,13 @@ public class AutoScheduling {
     private List<Manager> managers = new ArrayList<>();
     private Map<HopeTime, List<Schedule>> schedules = new EnumMap<>(HopeTime.class);
     private double fixedM3Ratio;
-    private double totalCardValueAvg;
+    private Map<Integer, Manager> managerNodes;
 
-    public ArrayList<ResultScheduling> runAlgorithm(List<Integer> userCodes, List<Integer> userCurrentTimes, List<List<Integer>> startTimesOfHopeTime) {
-        totalCardValueAvg = estimatedNumOfCardsPerHourRepository.totalCardValueAvg();
-
+    public ArrayList<ResultScheduling> runAlgorithm(List<Integer> userCodes, List<Integer> totalAssignTimes, List<List<Integer>> startTimesOfHopeTime) {
         Map<HopeTime, List<EstimatedNumOfCardsPerHour>> cardsByHopeTime = getCardsByHopeTime();
-        Map<Integer, Manager> managerNodes = makeManagerNodes(userCodes, userCurrentTimes, startTimesOfHopeTime);
+        managerNodes = makeManagerNodes(userCodes, totalAssignTimes, startTimesOfHopeTime);
 
-        scheduleAssignByHopeTime(cardsByHopeTime, managerNodes);
+        scheduleAssignByHopeTime(cardsByHopeTime);
         return getResultSchedulings();
     }
 
@@ -69,12 +68,12 @@ public class AutoScheduling {
     }
 
 
-    private Map<Integer, Manager> makeManagerNodes(List<Integer> userCodes, List<Integer> userCurrentTimes, List<List<Integer>> startTimesOfHopeTime) {
+    private Map<Integer, Manager> makeManagerNodes(List<Integer> userCodes, List<Integer> totalAssignTimes, List<List<Integer>> startTimesOfHopeTime) {
         Map<Integer, Manager> managerNode = new LinkedHashMap<>();
 
         for (int index = 0; index < userCodes.size(); index++) {
             List<HopeTime> hopeTimes = getHopeTimes(startTimesOfHopeTime.get(index));
-            Manager manager = new Manager(userCodes.get(index), userCurrentTimes.get(index), hopeTimes);
+            Manager manager = new Manager(userCodes.get(index), totalAssignTimes.get(index), hopeTimes);
             managerNode.put(userCodes.get(index), manager);
         }
 
@@ -91,9 +90,9 @@ public class AutoScheduling {
         return List.copyOf(hopeTimes);
     }
 
-    private void scheduleAssignByHopeTime(Map<HopeTime, List<EstimatedNumOfCardsPerHour>> cardsByHopeTime, Map<Integer, Manager> managerNodes) {
+    private void scheduleAssignByHopeTime(Map<HopeTime, List<EstimatedNumOfCardsPerHour>> cardsByHopeTime) {
         for (HopeTime hopeTime : HopeTime.values()) {
-            setManagerWeight(hopeTime, managerNodes);
+            setManagerWeight(hopeTime);
             makeScheduleNodes(hopeTime, cardsByHopeTime.get(hopeTime));
             bipartiteMatching(schedules.get(hopeTime));
         }
@@ -121,62 +120,75 @@ public class AutoScheduling {
         }
     }
 
-    private void setManagerWeight(HopeTime hopeTime, Map<Integer, Manager> managerNodes) {
+    private void setManagerWeight(HopeTime hopeTime) {
         List<Integer> codesOrderByJoinDate = userService.findJoinDateByHopeTime(hopeTime.getStartTime());
-        List<Integer> percentage = getPercentageOfManagerWeight();
+        Map<Weight, Integer> percentage = getPercentageOfManagerWeight();
+        fixedM3Ratio = getM3Ratio(percentage.get(LEVEL3));
 
-        fixedM3Ratio = getM3Ratio(percentage.get(HIGH_INDEX));
-
-        managers.clear();
-        List<List<Integer>> managerRatios = getManagerRatios(percentage, codesOrderByJoinDate.size());
-        for (List<Integer> managerRatio : managerRatios) {
-            setWeightByJoinDate(codesOrderByJoinDate, managerRatio, managerNodes);
-        }
+        setManagerWeight(codesOrderByJoinDate, percentage);
     }
 
-    private List<Integer> getPercentageOfManagerWeight() {
+    private Map<Weight, Integer> getPercentageOfManagerWeight() {
         PercentageOfManagerWeights percentageOfManagerWeights = percentageOfManagerWeightsRepository.findAll().get(0);
 
-        int high = percentageOfManagerWeights.getHigh();
-        int middle = percentageOfManagerWeights.getMiddle();
+        Map<Weight, Integer> percentage = new HashMap<>();
+        percentage.put(LEVEL3, percentageOfManagerWeights.getHigh());
+        percentage.put(LEVEL2, percentageOfManagerWeights.getMiddle());
 
-        return List.of(high, middle);
-    }
-
-    private List<List<Integer>> getManagerRatios(List<Integer> percentage, int totalCount) {
-        List<List<Integer>> managerRatio = new ArrayList<>();
-
-        int highManagerCount = getManagerRatio(percentage.get(HIGH_INDEX));
-        int middleManagerCount = getManagerRatio(percentage.get(MIDDLE_INDEX));
-
-        managerRatio.add(List.of(0, highManagerCount));
-        managerRatio.add(List.of(highManagerCount, middleManagerCount));
-        managerRatio.add(List.of(middleManagerCount, totalCount));
-
-        return managerRatio;
-    }
-
-    private int getManagerRatio(int level) {
-        return (int) Math.round(managers.size() * level * 0.01);
+        return Map.copyOf(percentage);
     }
 
     private double getM3Ratio(int high) {
         return high * 0.02;
     }
 
-    private void setWeightByJoinDate(List<Integer> codes, List<Integer> managerRatio, Map<Integer, Manager> managerNodes) {
-        int startIndex = managerRatio.get(0);
-        int endIndex = managerRatio.get(1);
+    private void setManagerWeight(List<Integer> codesOrderByJoinDate, Map<Weight, Integer> percentage) {
+        managers.clear();
 
-        for (int i = startIndex; i < endIndex; i++) {
-            int code = codes.get(i);
+        int totalManagerCount = codesOrderByJoinDate.size();
+        Map<Weight, Integer> managerCounts = getManagerCounts(percentage, totalManagerCount);
+
+        for (Weight weight : Weight.values()) {
+            List<Integer> codes = getCodes(codesOrderByJoinDate, managerCounts.get(weight));
+            setManagerWeight(codes, weight);
+        }
+    }
+
+    private Map<Weight, Integer> getManagerCounts(Map<Weight, Integer> percentage, int totalCount) {
+        Map<Weight, Integer> managerCounts = new HashMap<>();
+
+        int currentCount = 0;
+        for (Weight weight : percentage.keySet()) {
+            int managerCount = getManagerCount(percentage.get(weight), totalCount);
+            managerCounts.put(weight, managerCount);
+            currentCount += managerCount;
+        }
+        managerCounts.put(Weight.getLast(), totalCount - currentCount);
+
+        return Map.copyOf(managerCounts);
+    }
+
+    private int getManagerCount(int percentage, int totalManagerCount) {
+        return (int) Math.round(totalManagerCount * percentage * 0.01);
+    }
+
+    private List<Integer> getCodes(List<Integer> codesOrderByJoinDate, int managerCount) {
+        List<Integer> codesByWeight = codesOrderByJoinDate.subList(0, managerCount);
+        List<Integer> codes = new ArrayList<>(codesByWeight);
+        codesByWeight.clear();
+        return codes;
+    }
+
+    private void setManagerWeight(List<Integer> codes, Weight weight) {
+        for (int code : codes) {
             Manager manager = managerNodes.get(code);
-            manager.setWeight(LEVEL3);
+            manager.setWeight(weight);
             managers.add(manager);
         }
     }
 
     private void makeScheduleNodes(HopeTime hopeTime, List<EstimatedNumOfCardsPerHour> cards) {
+        double totalCardValueAvg = estimatedNumOfCardsPerHourRepository.totalCardValueAvg();
         List<Schedule> schedulesByHopeTime = schedules.getOrDefault(hopeTime, new ArrayList<>());
 
         for (EstimatedNumOfCardsPerHour card : cards) {
@@ -187,8 +199,8 @@ public class AutoScheduling {
                 numberOfManagers = 1;
             }
 
-            int weight = getWeight(totalCardValueAvg, numOfCards);
-            int numOfFixedManager = getNumberOfFixedManagers(numberOfManagers, weight);
+            Weight weight = getWeight(totalCardValueAvg, numOfCards);
+            int numOfFixedManager = getNumberOfFixedManagers(weight, numberOfManagers);
 
             int scheduleNodeId = 0;
             int countOfFixedManager = 0;
@@ -200,18 +212,18 @@ public class AutoScheduling {
                     countOfFixedManager++;
                 }
 
-                schedulesByHopeTime.add(new Schedule(++scheduleNodeId, card.getTime(), weight, M3));
+                schedulesByHopeTime.add(new Schedule(++scheduleNodeId, card.getTime(), M3, weight));
             }
-
-            schedules.put(hopeTime, schedulesByHopeTime);
         }
+
+        schedules.put(hopeTime, schedulesByHopeTime);
     }
 
     private int getNumberOfManagers(int numOfCards) {
         return (int) Math.ceil(numOfCards / MANAGER_DONE_REQUEST_AVG_PER_HOUR);
     }
 
-    private int getWeight(double totalCardValueAvg, int numOfCards) {
+    private Weight getWeight(double totalCardValueAvg, int numOfCards) {
         if (numOfCards < totalCardValueAvg / 2) {
             return LEVEL1;
         }
@@ -223,7 +235,7 @@ public class AutoScheduling {
         return LEVEL3;
     }
 
-    private int getNumberOfFixedManagers(int weight, int numberOfManagers) {
+    private int getNumberOfFixedManagers(Weight weight, int numberOfManagers) {
         if (weight == LEVEL3) {
             return (int) Math.round(numberOfManagers * fixedM3Ratio);
         }
@@ -231,29 +243,30 @@ public class AutoScheduling {
         return 0;
     }
 
-    private List<Manager> sortToPriority(List<Manager> managers, int scheduleWeight) {
+    private List<Manager> sortToPriority(List<Manager> managers, Weight scheduleWeight) {
         Comparator<Manager> comparingTotalAssignTime = Comparator.comparing(Manager::getTotalAssignTime);
         Comparator<Manager> comparingWeight = Comparator.comparing(Manager::getWeight);
         Comparator<Manager> comparingHopeTimeCount = Comparator.comparing(Manager::getHopeTimeCount);
 
-        switch (scheduleWeight) {
-            case LEVEL1:
-                managers.sort(comparingHopeTimeCount
-                        .thenComparing(comparingTotalAssignTime)
-                        .thenComparing(comparingWeight));
-                break;
+        if (LEVEL1 == scheduleWeight) {
+            return managers.stream().sorted(comparingHopeTimeCount
+                    .thenComparing(comparingTotalAssignTime)
+                    .thenComparing(comparingWeight))
+                    .collect(Collectors.toList());
+        }
 
-            case LEVEL2:
-                managers.sort(comparingTotalAssignTime
-                        .thenComparing(comparingHopeTimeCount)
-                        .thenComparing(comparingWeight.reversed()));
-                break;
+        if (LEVEL2 == scheduleWeight) {
+            return managers.stream().sorted(comparingTotalAssignTime
+                    .thenComparing(comparingHopeTimeCount)
+                    .thenComparing(comparingWeight.reversed()))
+                    .collect(Collectors.toList());
+        }
 
-            case LEVEL3:
-                managers.sort(comparingWeight.reversed()
-                        .thenComparing(comparingHopeTimeCount)
-                        .thenComparing(comparingTotalAssignTime));
-                break;
+        if (LEVEL3 == scheduleWeight) {
+            return managers.stream().sorted(comparingWeight.reversed()
+                    .thenComparing(comparingHopeTimeCount)
+                    .thenComparing(comparingTotalAssignTime))
+                    .collect(Collectors.toList());
         }
 
         return managers;
