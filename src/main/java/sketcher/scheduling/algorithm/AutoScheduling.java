@@ -28,7 +28,6 @@ import static sketcher.scheduling.algorithm.Weight.LEVEL3;
 public class AutoScheduling {
     private static final int DAY_ASSIGN_TIME = 3;
     private static final int TOTAL_ASSIGN_TIME = 10;
-    private static final double MANAGER_DONE_REQUEST_AVG_PER_HOUR = 50.0;
 
     private final UserService userService;
     private final EstimatedNumOfCardsPerHourRepository estimatedNumOfCardsPerHourRepository;
@@ -139,7 +138,7 @@ public class AutoScheduling {
     }
 
     private double getM3Ratio(int high) {
-        return high * 0.02;
+        return high * 0.01 / 2;
     }
 
     private void setManagerWeight(List<Integer> codesOrderByJoinDate, Map<Weight, Integer> percentage) {
@@ -191,56 +190,18 @@ public class AutoScheduling {
         double totalCardValueAvg = estimatedNumOfCardsPerHourRepository.totalCardValueAvg();
         List<Schedule> schedulesByHopeTime = schedules.getOrDefault(hopeTime, new ArrayList<>());
 
-        for (EstimatedNumOfCardsPerHour card : cards) {
-            int numOfCards = card.getNumOfCards();
-            int numberOfManagers = getNumberOfManagers(numOfCards);
-
-            if (numOfCards != 0 && numberOfManagers == 0) {
-                numberOfManagers = 1;
-            }
-
-            Weight weight = getWeight(totalCardValueAvg, numOfCards);
-            int numOfFixedManager = getNumberOfFixedManagers(weight, numberOfManagers);
-
-            int scheduleNodeId = 0;
-            int countOfFixedManager = 0;
-            for (int i = 0; i < numberOfManagers; i++) {
-                boolean M3 = false;
-
-                if (countOfFixedManager < numOfFixedManager) {
-                    M3 = true;
-                    countOfFixedManager++;
-                }
-
-                schedulesByHopeTime.add(new Schedule(++scheduleNodeId, card.getTime(), M3, weight));
-            }
-        }
+        addSchedules(cards, totalCardValueAvg, schedulesByHopeTime);
 
         schedules.put(hopeTime, schedulesByHopeTime);
     }
 
-    private int getNumberOfManagers(int numOfCards) {
-        return (int) Math.ceil(numOfCards / MANAGER_DONE_REQUEST_AVG_PER_HOUR);
-    }
+    private void addSchedules(List<EstimatedNumOfCardsPerHour> cards, double totalCardValueAvg, List<Schedule> schedulesByHopeTime) {
+        ScheduleNodeMaker scheduleNodeMaker = new ScheduleNodeMaker();
 
-    private Weight getWeight(double totalCardValueAvg, int numOfCards) {
-        if (numOfCards < totalCardValueAvg / 2) {
-            return LEVEL1;
+        for (EstimatedNumOfCardsPerHour card : cards) {
+            scheduleNodeMaker.setUp(card, totalCardValueAvg, fixedM3Ratio);
+            scheduleNodeMaker.addSchedule(schedulesByHopeTime, card);
         }
-
-        if (numOfCards < totalCardValueAvg * 2) {
-            return LEVEL2;
-        }
-
-        return LEVEL3;
-    }
-
-    private int getNumberOfFixedManagers(Weight weight, int numberOfManagers) {
-        if (weight == LEVEL3) {
-            return (int) Math.round(numberOfManagers * fixedM3Ratio);
-        }
-
-        return 0;
     }
 
     private List<Manager> sortToPriority(List<Manager> managers, Weight scheduleWeight) {
@@ -250,22 +211,22 @@ public class AutoScheduling {
 
         if (LEVEL1 == scheduleWeight) {
             return managers.stream().sorted(comparingHopeTimeCount
-                    .thenComparing(comparingTotalAssignTime)
-                    .thenComparing(comparingWeight))
+                            .thenComparing(comparingTotalAssignTime)
+                            .thenComparing(comparingWeight))
                     .collect(Collectors.toList());
         }
 
         if (LEVEL2 == scheduleWeight) {
             return managers.stream().sorted(comparingTotalAssignTime
-                    .thenComparing(comparingHopeTimeCount)
-                    .thenComparing(comparingWeight.reversed()))
+                            .thenComparing(comparingHopeTimeCount)
+                            .thenComparing(comparingWeight.reversed()))
                     .collect(Collectors.toList());
         }
 
         if (LEVEL3 == scheduleWeight) {
             return managers.stream().sorted(comparingWeight.reversed()
-                    .thenComparing(comparingHopeTimeCount)
-                    .thenComparing(comparingTotalAssignTime))
+                            .thenComparing(comparingHopeTimeCount)
+                            .thenComparing(comparingTotalAssignTime))
                     .collect(Collectors.toList());
         }
 

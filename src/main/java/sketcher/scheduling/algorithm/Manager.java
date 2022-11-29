@@ -40,7 +40,7 @@ public class Manager {
         return null;
     }
 
-    public void updateAssignScheduleList(Schedule currentNode, Schedule newNode) {
+    public void updateAssignSchedules(Schedule currentNode, Schedule newNode) {
         if (isAlreadyAssign(currentNode)) {
             assignSchedules.remove(currentNode);
             assignSchedules.add(newNode);
