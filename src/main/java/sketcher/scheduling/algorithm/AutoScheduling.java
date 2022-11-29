@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static sketcher.scheduling.algorithm.Weight.LEVEL1;
 import static sketcher.scheduling.algorithm.Weight.LEVEL2;
@@ -204,37 +203,34 @@ public class AutoScheduling {
         }
     }
 
-    private List<Manager> sortToPriority(List<Manager> managers, Weight scheduleWeight) {
-        Comparator<Manager> comparingTotalAssignTime = Comparator.comparing(Manager::getTotalAssignTime);
-        Comparator<Manager> comparingWeight = Comparator.comparing(Manager::getWeight);
-        Comparator<Manager> comparingHopeTimeCount = Comparator.comparing(Manager::getHopeTimeCount);
+    private void sortToPriority(Weight scheduleWeight) {
+        Comparator<Manager> totalAssignTime = Comparator.comparing(Manager::getTotalAssignTime);
+        Comparator<Manager> weight = Comparator.comparing(Manager::getWeight);
+        Comparator<Manager> hopeTimeCount = Comparator.comparing(Manager::getHopeTimeCount);
 
         if (LEVEL1 == scheduleWeight) {
-            return managers.stream().sorted(comparingHopeTimeCount
-                            .thenComparing(comparingTotalAssignTime)
-                            .thenComparing(comparingWeight))
-                    .collect(Collectors.toList());
+            sortByConditionOfWeight(hopeTimeCount, totalAssignTime, weight);
+            return;
         }
 
         if (LEVEL2 == scheduleWeight) {
-            return managers.stream().sorted(comparingTotalAssignTime
-                            .thenComparing(comparingHopeTimeCount)
-                            .thenComparing(comparingWeight.reversed()))
-                    .collect(Collectors.toList());
+            sortByConditionOfWeight(weight.reversed(), hopeTimeCount, totalAssignTime);
+            return;
         }
 
-        if (LEVEL3 == scheduleWeight) {
-            return managers.stream().sorted(comparingWeight.reversed()
-                            .thenComparing(comparingHopeTimeCount)
-                            .thenComparing(comparingTotalAssignTime))
-                    .collect(Collectors.toList());
-        }
+        sortByConditionOfWeight(totalAssignTime, weight, hopeTimeCount);
+    }
 
-        return managers;
+    private void sortByConditionOfWeight(Comparator<Manager> firstCondition,
+                                         Comparator<Manager> secondCondition,
+                                         Comparator<Manager> thirdCondition) {
+        managers.sort(firstCondition
+                .thenComparing(secondCondition)
+                .thenComparing(thirdCondition));
     }
 
     private boolean dfs(Schedule scheduleNode) {
-        managers = sortToPriority(managers, scheduleNode.getWeight());
+        sortToPriority(scheduleNode.getWeight());
 
         for (Manager manager : managers) {
             Schedule assignScheduleNode = manager.findScheduleByTime(scheduleNode.getTime());
@@ -243,11 +239,19 @@ public class AutoScheduling {
                 continue;
             }
 
-            if (assignScheduleNode == null || dfs(assignScheduleNode)) {
-                manager.updateAssignScheduleList(assignScheduleNode, scheduleNode);
-                scheduleNode.setManager(manager);
+            if (assignSchedule(scheduleNode, manager, assignScheduleNode)) {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private boolean assignSchedule(Schedule scheduleNode, Manager manager, Schedule assignScheduleNode) {
+        if (assignScheduleNode == null || dfs(assignScheduleNode)) {
+            manager.updateAssignSchedules(assignScheduleNode, scheduleNode);
+            scheduleNode.setManager(manager);
+            return true;
         }
 
         return false;
