@@ -216,11 +216,11 @@ public class AutoScheduling {
         }
 
         if (LEVEL2 == scheduleWeight) {
-            sortByConditionOfWeight(weight.reversed(), hopeTimeCount, totalAssignTime);
+            sortByConditionOfWeight(totalAssignTime, hopeTimeCount, weight.reversed());
             return;
         }
 
-        sortByConditionOfWeight(totalAssignTime, weight, hopeTimeCount);
+        sortByConditionOfWeight(weight.reversed(), hopeTimeCount, totalAssignTime);
     }
 
     private void sortByConditionOfWeight(Comparator<Manager> firstCondition,
