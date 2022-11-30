@@ -27,6 +27,8 @@ import static sketcher.scheduling.algorithm.Weight.LEVEL3;
 public class AutoScheduling {
     private static final int DAY_ASSIGN_TIME = 3;
     private static final int TOTAL_ASSIGN_TIME = 10;
+    private static final double PERCENTAGE = 0.01;
+    private static final int M3_RATIO = 2;
 
     private final UserService userService;
     private final EstimatedNumOfCardsPerHourRepository estimatedNumOfCardsPerHourRepository;
@@ -137,7 +139,7 @@ public class AutoScheduling {
     }
 
     private double getM3Ratio(int high) {
-        return high * 0.01 / 2;
+        return high * PERCENTAGE / M3_RATIO;
     }
 
     private void setManagerWeight(List<Integer> codesOrderByJoinDate, Map<Weight, Integer> percentage) {
