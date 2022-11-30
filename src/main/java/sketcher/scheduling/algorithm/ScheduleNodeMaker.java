@@ -38,15 +38,32 @@ public class ScheduleNodeMaker {
     }
 
     private Weight getWeight(double totalCardValueAvg) {
-        if (numOfCards < totalCardValueAvg / 2) {
+        if (isLowCards(totalCardValueAvg)) {
             return LEVEL1;
         }
 
-        if (numOfCards < totalCardValueAvg * 2) {
-            return LEVEL2;
+        if (isHighCards(totalCardValueAvg)) {
+            return LEVEL3;
         }
 
-        return LEVEL3;
+        return LEVEL2;
+    }
+
+    private boolean isLowCards(double totalCardValueAvg) {
+        return numOfCards < getLowBoundary(totalCardValueAvg);
+    }
+
+
+    private static double getLowBoundary(double totalCardValueAvg) {
+        return totalCardValueAvg / 2;
+    }
+
+    private boolean isHighCards(double totalCardValueAvg) {
+        return numOfCards >= getHighBoundary(totalCardValueAvg);
+    }
+
+    private static double getHighBoundary(double totalCardValueAvg) {
+        return totalCardValueAvg * 2;
     }
 
     private int getNumberOfFixedManagers(double fixedM3Ratio) {
