@@ -101,30 +101,6 @@ public class AutoScheduling {
         }
     }
     
-    private void bipartiteMatching(List<Schedule> schedules) {
-        for (Schedule schedule : schedules) {
-            dfs(schedule);
-        }
-    }
-    
-    private ArrayList<ResultScheduling> getResultSchedulings() {
-        ArrayList<ResultScheduling> schedulingResults = new ArrayList<>();
-        for (HopeTime hopeTime : HopeTime.values()) {
-            createResultSchedulings(schedulingResults, schedules.get(hopeTime));
-        }
-        return schedulingResults;
-    }
-    
-    private void createResultSchedulings(ArrayList<ResultScheduling> schedulingResults,
-            List<Schedule> schedulesByHopeTime) {
-        for (Schedule schedule : schedulesByHopeTime) {
-            if (schedule.getManager() != null) {
-                schedulingResults.add(new ResultScheduling(schedule.getTime(), schedule.getManager().getCode(),
-                        schedule.getManager().getTotalAssignTime()));
-            }
-        }
-    }
-    
     private void setManagerWeight(HopeTime hopeTime) {
         List<Integer> codesOrderByJoinDate = userService.findJoinDateByHopeTime(hopeTime.getStartTime());
         Map<Weight, Integer> percentage = getPercentageOfManagerWeight();
@@ -211,6 +187,30 @@ public class AutoScheduling {
         }
     }
     
+    private void bipartiteMatching(List<Schedule> schedules) {
+        for (Schedule schedule : schedules) {
+            dfs(schedule);
+        }
+    }
+    
+    private boolean dfs(Schedule scheduleNode) {
+        sortToPriority(scheduleNode.getWeight());
+        
+        for (Manager manager : managers) {
+            Schedule assignScheduleNode = manager.findScheduleByTime(scheduleNode.getTime());
+            
+            if (!canAssignSchedule(scheduleNode, manager, assignScheduleNode)) {
+                continue;
+            }
+            
+            if (assignSchedule(scheduleNode, manager, assignScheduleNode)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     private void sortToPriority(Weight scheduleWeight) {
         Comparator<Manager> totalAssignTime = Comparator.comparing(Manager::getTotalAssignTime);
         Comparator<Manager> weight = Comparator.comparing(Manager::getWeight);
@@ -235,34 +235,6 @@ public class AutoScheduling {
         managers.sort(firstCondition
                 .thenComparing(secondCondition)
                 .thenComparing(thirdCondition));
-    }
-    
-    private boolean dfs(Schedule scheduleNode) {
-        sortToPriority(scheduleNode.getWeight());
-        
-        for (Manager manager : managers) {
-            Schedule assignScheduleNode = manager.findScheduleByTime(scheduleNode.getTime());
-            
-            if (!canAssignSchedule(scheduleNode, manager, assignScheduleNode)) {
-                continue;
-            }
-            
-            if (assignSchedule(scheduleNode, manager, assignScheduleNode)) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    private boolean assignSchedule(Schedule scheduleNode, Manager manager, Schedule assignScheduleNode) {
-        if (assignScheduleNode == null || dfs(assignScheduleNode)) {
-            manager.updateAssignSchedules(assignScheduleNode, scheduleNode);
-            scheduleNode.setManager(manager);
-            return true;
-        }
-        
-        return false;
     }
     
     private boolean canAssignSchedule(Schedule scheduleNode, Manager manager, Schedule assignScheduleNode) {
@@ -299,5 +271,33 @@ public class AutoScheduling {
     
     private boolean isMatchWeight(Schedule scheduleNode, Manager manager) {
         return scheduleNode.isM3() && !manager.isEqualsWeight(LEVEL3);
+    }
+    
+    private boolean assignSchedule(Schedule scheduleNode, Manager manager, Schedule assignScheduleNode) {
+        if (assignScheduleNode == null || dfs(assignScheduleNode)) {
+            manager.updateAssignSchedules(assignScheduleNode, scheduleNode);
+            scheduleNode.setManager(manager);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    private ArrayList<ResultScheduling> getResultSchedulings() {
+        ArrayList<ResultScheduling> schedulingResults = new ArrayList<>();
+        for (HopeTime hopeTime : HopeTime.values()) {
+            createResultSchedulings(schedulingResults, schedules.get(hopeTime));
+        }
+        return schedulingResults;
+    }
+    
+    private void createResultSchedulings(ArrayList<ResultScheduling> schedulingResults,
+            List<Schedule> schedulesByHopeTime) {
+        for (Schedule schedule : schedulesByHopeTime) {
+            if (schedule.getManager() != null) {
+                schedulingResults.add(new ResultScheduling(schedule.getTime(), schedule.getManager().getCode(),
+                        schedule.getManager().getTotalAssignTime()));
+            }
+        }
     }
 }
