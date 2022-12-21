@@ -3,7 +3,10 @@ package sketcher.scheduling.controller;
 import lombok.RequiredArgsConstructor;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import sketcher.scheduling.algorithm.AutoScheduling;
 import sketcher.scheduling.algorithm.ResultScheduling;
 import sketcher.scheduling.domain.ManagerHopeTime;
@@ -11,7 +14,6 @@ import sketcher.scheduling.domain.User;
 import sketcher.scheduling.dto.EstimatedNumOfCardsPerHourDto;
 import sketcher.scheduling.dto.ManagerAssignScheduleDto;
 import sketcher.scheduling.repository.EstimatedNumOfCardsPerHourRepository;
-import sketcher.scheduling.repository.ManagerHopeTimeRepository;
 import sketcher.scheduling.repository.PercentageOfManagerWeightsRepository;
 import sketcher.scheduling.repository.UserRepository;
 import sketcher.scheduling.service.KakaoService;
@@ -23,17 +25,28 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 @org.springframework.web.bind.annotation.RestController
 @RequiredArgsConstructor
 public class RestController {
+    private static final String USER_CODE = "userCode";
+    private static final String TOTAL_ASSIGN_TIME = "userCurrentTime";
+    private static final String HOPE_TIME = "hopetime";
+    private static final String DATE = "date";
+    private static final String DAY_OF_THE_WEEK = "day";
+    public static final String SCHEDULE_START_TIME = "scheduleStartTime";
+    public static final String SCHEDULE_RESULTS = "scheduleResults";
+    public static final String USER_RESULTS = "userResults";
     private final UserRepository userRepository;
     private final UserService userService;
     private final ManagerAssignScheduleService assignScheduleService;
     private final KakaoService kakaoService;
     private final ManagerHopeTimeService hopeTimeService;
-    private final ManagerHopeTimeRepository managerHopeTimeRepository;
     private final EstimatedNumOfCardsPerHourRepository estimatedNumOfCardsPerHourRepository;
     private final PercentageOfManagerWeightsRepository percentageOfManagerWeightsRepository;
 
@@ -41,6 +54,7 @@ public class RestController {
     public List<User> findAllManager() {
         return userRepository.findAllManager();
     }
+
     @GetMapping(value = "/find_All_Manager_Hope_Time")
     public List<ManagerHopeTime> findAllManagerHopeTime() {
         return hopeTimeService.findAll();
@@ -74,39 +88,47 @@ public class RestController {
 
     @RequestMapping(value = "/current_status_info", produces = "application/json;charset=UTF-8", method = RequestMethod.POST)
     public JSONObject currentStatusInfo(@RequestBody List<Map<String, Object>> param) throws ParseException {
-        String date = "";
-        String day = "";
-        int usercode[] = new int[param.size() - 1];
-        int userCurrentTime[] = new int[param.size() - 1];
-        List<List<Integer>> hopeTimeList = new ArrayList<>();
-        int flag = 0;
-        int index = 0;
-        for (Map<String, Object> stringObjectMap : param) {
-            System.out.println(stringObjectMap.toString());
-            if (flag == 1) {    //
-                usercode[index] = (int) stringObjectMap.get("userCode");
-                userCurrentTime[index] = (int) stringObjectMap.get("userCurrentTime");
-                String hopetimeStr = stringObjectMap.get("hopetime").toString();
-                settingHopeTimeList(hopeTimeList, hopetimeStr);
-                index++;
-            } else {
-                flag = 1;
-                date = (String) stringObjectMap.get("date");
-                day = (String) stringObjectMap.get("day");
-            }
+        List<Integer> userCodes = new ArrayList<>();
+        List<Integer> totalAssignTimes = new ArrayList<>();
+        List<List<Integer>> startTimesOfHopeTime = new ArrayList<>();
+
+        Map<String, Object> dateAndDay = param.remove(0);
+        String date = dateAndDay.get(DATE).toString();
+        String dayOfTheWeek = dateAndDay.get(DAY_OF_THE_WEEK).toString();
+
+        for (Map<String, Object> map : param) {
+            userCodes.add((int) map.get(USER_CODE));
+            totalAssignTimes.add((int) map.get(TOTAL_ASSIGN_TIME));
+            startTimesOfHopeTime.add(getStartTimesOfHopeTime(map.get(HOPE_TIME).toString()));
         }
 
         AutoScheduling autoScheduling = new AutoScheduling(userService, estimatedNumOfCardsPerHourRepository, percentageOfManagerWeightsRepository);
-        ArrayList<ResultScheduling> schedulings = autoScheduling.runAlgorithm(usercode, userCurrentTime, hopeTimeList);
-
-        JSONObject schedulingJsonObj = schedulingResultsToJson(date, day, schedulings);
-
-        System.out.println(schedulingJsonObj.toJSONString());
-
-        return schedulingJsonObj;
+        ArrayList<ResultScheduling> schedulings = autoScheduling.runAlgorithm(userCodes, totalAssignTimes, startTimesOfHopeTime);
+        return schedulingResultsToJson(date, dayOfTheWeek, schedulings);
     }
 
-    private JSONObject schedulingResultsToJson(String date, String day, ArrayList<ResultScheduling> schedulings) {
+    private List<Integer> getStartTimesOfHopeTime(String startTimeOfHopeTime) {
+        String[] startTimes = toStringArray(startTimeOfHopeTime);
+        return toIntegerList(startTimes);
+    }
+
+    private String[] toStringArray(String startTimeOfHopeTime) {
+        return startTimeOfHopeTime
+                .replace("[", "")
+                .replace("]", "")
+                .split(", ");
+    }
+
+    private List<Integer> toIntegerList(String[] startTimes) {
+        List<Integer> startTimesOfHopeTime = new ArrayList<>();
+        for (String startTime : startTimes) {
+            startTimesOfHopeTime.add(Integer.parseInt(startTime));
+        }
+
+        return startTimesOfHopeTime;
+    }
+
+    private JSONObject schedulingResultsToJson(String date, String dayOfTheWeek, ArrayList<ResultScheduling> schedulings) {
         JSONObject schedulingJsonObj = new JSONObject();
 
         JSONArray selectedDate = new JSONArray();
@@ -116,42 +138,33 @@ public class RestController {
         HashMap<Integer, Integer> userList = new HashMap<>();
 
         JSONObject dateInfo = new JSONObject();
-        dateInfo.put("date", date);
-        dateInfo.put("day", day);
+        dateInfo.put(DATE, date);
+        dateInfo.put(DAY_OF_THE_WEEK, dayOfTheWeek);
         selectedDate.add(dateInfo);
-        schedulingJsonObj.put("date", selectedDate);
+        schedulingJsonObj.put(DATE, selectedDate);
 
         for (ResultScheduling scheduling : schedulings) {
             JSONObject scheduleItem = new JSONObject();
-            scheduleItem.put("scheduleStartTime", scheduling.startTime);
-            scheduleItem.put("userCode", scheduling.userCode);
+            scheduleItem.put(SCHEDULE_START_TIME, scheduling.startTime);
+            scheduleItem.put(USER_CODE, scheduling.userCode);
             scheduleJsonList.add(scheduleItem);
-//            System.out.println(scheduling.startTime+" / "+scheduling.userCode+"번 매니저 / 현재 배정시간 : "+scheduling.currentTime);
+
             if (!userList.containsKey(scheduling.userCode)) {
                 userList.put(scheduling.userCode, scheduling.currentTime);
             }
         }
 
-        schedulingJsonObj.put("scheduleResults", scheduleJsonList);
+        schedulingJsonObj.put(SCHEDULE_RESULTS, scheduleJsonList);
 
         for (Map.Entry<Integer, Integer> userStatus : userList.entrySet()) {
             JSONObject scheduleItem = new JSONObject();
-            scheduleItem.put("userCode", userStatus.getKey());
-            scheduleItem.put("userCurrentTime", userStatus.getValue());
+            scheduleItem.put(USER_CODE, userStatus.getKey());
+            scheduleItem.put(TOTAL_ASSIGN_TIME, userStatus.getValue());
             userJsonList.add(scheduleItem);
         }
 
-        schedulingJsonObj.put("userResults", userJsonList);
+        schedulingJsonObj.put(USER_RESULTS, userJsonList);
         return schedulingJsonObj;
-    }
-
-    private void settingHopeTimeList(List<List<Integer>> hopeTimeList, String hopetimeStr) {
-        String[] split = hopetimeStr.replace("[", "").replace("]", "").split(", ");
-        List<Integer> hopetimes = new ArrayList<>();
-        for (String hopetime : split) {
-            hopetimes.add(Integer.parseInt(hopetime));
-        }
-        hopeTimeList.add(hopetimes);
     }
 
     public void sendKakaoMessage() throws IOException {

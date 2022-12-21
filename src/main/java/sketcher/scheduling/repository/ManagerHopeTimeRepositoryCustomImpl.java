@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
-import static com.querydsl.core.group.GroupBy.groupBy;
 import static org.springframework.util.StringUtils.hasText;
 import static sketcher.scheduling.domain.QManagerHopeTime.managerHopeTime;
 import static sketcher.scheduling.domain.QUser.user;
@@ -25,14 +24,8 @@ import static sketcher.scheduling.domain.QUser.user;
 @Transactional
 @RequiredArgsConstructor
 public class ManagerHopeTimeRepositoryCustomImpl implements ManagerHopeTimeRepositoryCustom {
-
     private final UserRepository userRepository;
-
-    private final ManagerHopeTimeRepository hopeTimeRepository;
-
     private final JPAQueryFactory queryFactory;
-
-
 
     @Override
     public ArrayList<String> findHopeTimeById(String id) {
@@ -76,7 +69,7 @@ public class ManagerHopeTimeRepositoryCustomImpl implements ManagerHopeTimeRepos
 
         for (Tuple tuple : content) {
             for (HopeTime hopeTime : HopeTime.values()) {
-                if(tuple.get(managerHopeTime.start_time) == hopeTime.getStart_time()) {
+                if (tuple.get(managerHopeTime.start_time) == hopeTime.getStartTime()) {
                     countHopeTime.put(hopeTime.getKor(), tuple.get(managerHopeTime.id.count()));
                     break;
                 }

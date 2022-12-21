@@ -1,12 +1,17 @@
 package sketcher.scheduling.repository;
 
 import com.querydsl.core.BooleanBuilder;
-import com.querydsl.core.Tuple;
-import com.querydsl.core.types.*;
+import com.querydsl.core.types.Order;
+import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import sketcher.scheduling.domain.User;
@@ -118,6 +123,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
         return new PageImpl<>(content, pageable, total);
     }
+
     @Override
     public Page<UserDto> findLeaveManager(UserSearchCondition condition, Pageable pageable) {
         pageable = pageableSetting(condition, pageable);
@@ -158,6 +164,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
         return new PageImpl<>(content, pageable, total);
     }
+
     @Override
     public Page<UserDto> findVacationManagers(UserSearchCondition condition, Pageable pageable) {
         pageable = pageableSetting(condition, pageable);
@@ -213,18 +220,15 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
     }
 
     @Override
-    public List<Tuple> findJoinDateByHopeTime(Integer startTime) {
-        List<Tuple> content = queryFactory
-                .select(user.code, user.user_joinDate)
+    public List<Integer> findJoinDateByHopeTime(int startTime) {
+        return queryFactory
+                .select(user.code)
                 .from(user)
                 .join(user.managerHopeTimeList, managerHopeTime)
                 .where(startTimeEq(startTime),
                         authRoleEq("MANAGER"))
                 .orderBy(user.user_joinDate.asc())
                 .fetch();
-
-
-        return content;
     }
 
     private Pageable pageableSetting(UserSearchCondition condition, Pageable pageable) {
@@ -281,6 +285,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
         return builder;
     }
+
     private BooleanBuilder leaveManagerList(String type, String keyword) {
         BooleanBuilder builder = new BooleanBuilder();
 
@@ -289,6 +294,7 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
         return builder;
     }
+
     private BooleanBuilder vacationManagerList(String type, String keyword) {
         BooleanBuilder builder = new BooleanBuilder();
 
@@ -326,7 +332,6 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
         return content;
     }
-
 
 
     private OrderSpecifier<?> listSort(String list_align) {

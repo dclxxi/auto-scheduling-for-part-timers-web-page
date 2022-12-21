@@ -4,26 +4,28 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import javax.annotation.Nullable;
-
 @Getter
 @Setter
 @NoArgsConstructor
 public class Schedule {
-    private Integer id;
-    private Integer time;
-    private Integer weight;
-    private boolean managerWeightFlag;
+    private int id;
+    private int time;
+    private Weight weight;
+    private boolean M3;
     private Manager manager;
 
-    public boolean isManagerWeightFlag() {
-        return managerWeightFlag;
-    }
-
-    public Schedule(Integer id, Integer time, Integer weight, boolean managerWeightFlag) {
+    public Schedule(int id, int time, Weight weight, boolean M3) {
         this.id = id;
         this.time = time;
         this.weight = weight;
-        this.managerWeightFlag = managerWeightFlag;
+        this.M3 = M3;
+    }
+
+    public boolean isM3() {
+        return M3;
+    }
+
+    public boolean isEqualsTime(int time) {
+        return this.time == time;
     }
 }
