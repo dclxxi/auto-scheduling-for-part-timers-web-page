@@ -7,7 +7,7 @@ Sketcher team scheduling task
 개발한 결과물을 스타트업에 제안하였고,
 **교내 캡스톤 디자인 경진대회에서 학부 1등**으로 선정되어 경기도지사상을 받았습니다.
 
-> 매칭되지 않은 스케줄을 최소화하면서 50% 이상 시간 단축을 목적으로 **이분매칭(Bipartite Matching)** 알고리즘을 적용하여 **자동 스케줄 배정 기능을 개발**하였습니다. <br>이를 통해 평균 1시간 이상 소요되는 일주일 치 스케줄 배정을 최대 20분으로 절감하였습니다.
+> 매칭되지 않은 스케줄을 최소화하면서 50% 이상 시간 단축을 목적으로 **이분매칭(Bipartite Matching)** 알고리즘을 적용하여 **자동 스케줄 배정 기능을 개발**하였습니다.
 
 
 <p>
@@ -17,14 +17,6 @@ Sketcher team scheduling task
 
 
 프로젝트 기간 : `2022.01 ~ 2022.09`
-
-[Notion](https://maddening-prawn-76c.notion.site/655f4a28ef994b6fb3a9eff636565d0c)에서 편하게 확인할 수 있습니다.
-
-<br>
-
-### 🔗 발표 및 데모 영상
-
-[https://cms.tukorea.ac.kr/em/6357e7e01ae4c](https://cms.tukorea.ac.kr/em/6357e7e01ae4c)
 
 <br>
 
@@ -50,9 +42,8 @@ Sketcher team scheduling task
 
 ### 🌟 ****Contributor****
 
-| 이름 | 박태영 | 이혜원 | 정민환 |
+| 팀원 | [ty990520](https://github.com/ty990520) | [dclxxi](https://github.com/dclxxi) | [dokongMin](https://github.com/dokongMin) |
 | :---: | :---: | :---: | :---: |
-| 깃헙 아이디 | [ty990520](https://github.com/ty990520) | [dclxxi](https://github.com/dclxxi) | [dokongMin](https://github.com/dokongMin) |
 | 역할 | 팀 리드, 회원가입 및 로그인, <br>요청알림 관리, CI/CD 설정 | 페이징 및 검색 처리, 매니저 관리, <br>마이페이지, 카카오톡 API기반 알림 전송 | 오픈소스 Full-calendar기반 <br> 스케줄 CRUD, 휴가 매니저 관리 
 | 포지션 | 프론트엔드 및 백엔드 | 프론트엔드 및 백엔드 | 백엔드 |
 
